@@ -51,8 +51,8 @@ impl RasterRenderer {
         // Render the SVG
         resvg::render(&tree, transform, &mut pixmap.as_mut());
 
-        // Convert pixmap to image::RgbaImage
-        let img = RgbaImage::from_raw(width, height, pixmap.data().to_vec())
+        // Convert pixmap to image::RgbaImage (take ownership to avoid copying)
+        let img = RgbaImage::from_raw(width, height, pixmap.take())
             .ok_or_else(|| QRError::SvgError("Failed to create image from pixmap".to_string()))?;
 
         Ok(DynamicImage::ImageRgba8(img))
@@ -62,7 +62,7 @@ impl RasterRenderer {
     fn encode_image(image: &DynamicImage, format: OutputFormat) -> Result<Vec<u8>> {
         let mut buffer = Cursor::new(Vec::new());
 
-        let image_format = match format {
+        let image_format: ImageFormat = match format {
             OutputFormat::Png => ImageFormat::Png,
             OutputFormat::Jpeg => ImageFormat::Jpeg,
             OutputFormat::WebP => ImageFormat::WebP,

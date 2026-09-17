@@ -4,6 +4,14 @@ use crate::config::QROptions;
 use crate::error::{QRError, Result};
 use qrcode::{QrCode, Version};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FinderRegion {
+    None,
+    Outer,
+    Inner,
+    Body,
+}
+
 /// Wrapper around the QR code matrix providing efficient module access.
 #[derive(Debug, Clone)]
 pub struct QRMatrix {
@@ -14,7 +22,7 @@ pub struct QRMatrix {
 }
 
 impl QRMatrix {
-    /// Create a new QR matrix from data with the specified options.
+    /// Create a new QR matrix from data with the specified options.    
     pub fn new(data: &str, options: &QROptions) -> Result<Self> {
         let ec_level = options.error_correction_level.to_qrcode_level();
 
@@ -84,6 +92,35 @@ impl QRMatrix {
     pub fn get_neighbor(&self, row: i32, col: i32, offset_x: i32, offset_y: i32) -> bool {
         self.is_dark_signed(row + offset_y, col + offset_x)
     }
+    
+    pub fn finder_region(&self, row: usize, col: usize) -> FinderRegion {
+        let size = self.size;
+
+        let corner_origin = if row < 7 && col < 7 {
+            Some((0, 0))
+        } else if row < 7 && col >= size - 7 {
+            Some((0, size - 7))
+        } else if row >= size - 7 && col < 7 {
+            Some((size - 7, 0))
+        } else {
+            None
+        };
+
+        let Some((start_r, start_c)) = corner_origin else {
+            return FinderRegion::None;
+        };
+
+        let local_r = row - start_r;
+        let local_c = col - start_c;
+
+        if local_r == 0 || local_r == 6 || local_c == 0 || local_c == 6 {
+            FinderRegion::Outer
+        } else if (2..=4).contains(&local_r) && (2..=4).contains(&local_c) {
+            FinderRegion::Inner
+        } else {
+            FinderRegion::Body
+        }
+    }
 
     /// Check if a position is part of a finder pattern (corner square).
     /// Finder patterns are 7x7 and located at:
@@ -91,89 +128,13 @@ impl QRMatrix {
     /// - Top-right: (0, size-7)
     /// - Bottom-left: (size-7, 0)
     pub fn is_finder_pattern(&self, row: usize, col: usize) -> bool {
-        let size = self.size;
-
-        // Top-left finder pattern
-        if row < 7 && col < 7 {
-            return true;
-        }
-
-        // Top-right finder pattern
-        if row < 7 && col >= size - 7 {
-            return true;
-        }
-
-        // Bottom-left finder pattern
-        if row >= size - 7 && col < 7 {
-            return true;
-        }
-
-        false
+        self.finder_region(row, col) != FinderRegion::None
     }
-
-    /// Check if a position is part of a finder pattern's outer square (7x7 border).
     pub fn is_finder_pattern_outer(&self, row: usize, col: usize) -> bool {
-        if !self.is_finder_pattern(row, col) {
-            return false;
-        }
-
-        let size = self.size;
-
-        // Check if on the border of any finder pattern
-        let check_border = |r: usize, c: usize, start_r: usize, start_c: usize| -> bool {
-            let local_r = r - start_r;
-            let local_c = c - start_c;
-            local_r == 0 || local_r == 6 || local_c == 0 || local_c == 6
-        };
-
-        // Top-left
-        if row < 7 && col < 7 {
-            return check_border(row, col, 0, 0);
-        }
-
-        // Top-right
-        if row < 7 && col >= size - 7 {
-            return check_border(row, col, 0, size - 7);
-        }
-
-        // Bottom-left
-        if row >= size - 7 && col < 7 {
-            return check_border(row, col, size - 7, 0);
-        }
-
-        false
+        self.finder_region(row, col) == FinderRegion::Outer
     }
-
-    /// Check if a position is part of a finder pattern's inner dot (3x3 center).
     pub fn is_finder_pattern_inner(&self, row: usize, col: usize) -> bool {
-        if !self.is_finder_pattern(row, col) {
-            return false;
-        }
-
-        let size = self.size;
-
-        let check_inner = |r: usize, c: usize, start_r: usize, start_c: usize| -> bool {
-            let local_r = r - start_r;
-            let local_c = c - start_c;
-            local_r >= 2 && local_r <= 4 && local_c >= 2 && local_c <= 4
-        };
-
-        // Top-left
-        if row < 7 && col < 7 {
-            return check_inner(row, col, 0, 0);
-        }
-
-        // Top-right
-        if row < 7 && col >= size - 7 {
-            return check_inner(row, col, 0, size - 7);
-        }
-
-        // Bottom-left
-        if row >= size - 7 && col < 7 {
-            return check_inner(row, col, size - 7, 0);
-        }
-
-        false
+        self.finder_region(row, col) == FinderRegion::Inner
     }
 }
 

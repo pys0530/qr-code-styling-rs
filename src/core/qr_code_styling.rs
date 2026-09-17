@@ -63,7 +63,7 @@ impl QRCodeStyling {
 
     /// Render the QR code as an SVG string.
     pub fn render_svg(&self) -> Result<String> {
-        let renderer = SvgRenderer::new(self.options.clone());
+        let renderer = SvgRenderer::new(&self.options);
         renderer.render(&self.matrix)
     }
 

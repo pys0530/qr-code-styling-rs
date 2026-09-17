@@ -1,16 +1,17 @@
 //! SVG renderer for QR codes.
 
 use std::f64::consts::PI;
+use fixedbitset::FixedBitSet;
 
 use crate::config::{Color, Gradient, QRCodeStylingOptions};
 use crate::core::QRMatrix;
 use crate::error::Result;
 use crate::figures::{QRCornerDot, QRCornerSquare, QRDot};
-use crate::types::{CornerSquareType, GradientType, ShapeType};
+use crate::types::{GradientType, ShapeType};
 
 /// SVG renderer for QR codes.
-pub struct SvgRenderer {
-    options: QRCodeStylingOptions,
+pub struct SvgRenderer<'a> {
+    options: &'a QRCodeStylingOptions,
     instance_id: u64,
 }
 
@@ -38,9 +39,9 @@ const DOT_MASK: [[u8; 7]; 7] = [
 
 static INSTANCE_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-impl SvgRenderer {
+impl<'a> SvgRenderer<'a> {
     /// Create a new SVG renderer.
-    pub fn new(options: QRCodeStylingOptions) -> Self {
+    pub fn new(options: &'a QRCodeStylingOptions) -> Self {
         let instance_id = INSTANCE_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Self {
             options,
@@ -202,15 +203,21 @@ impl SvgRenderer {
         let dot_drawer = QRDot::new(self.options.dots_options.dot_type);
         let name = format!("dot-color-{}", self.instance_id);
 
-        // Create dots clip path
+        let mut drawable = FixedBitSet::with_capacity(count * count);
+
         for row in 0..count {
             for col in 0..count {
-                // Apply filter
-                if !self.should_draw_dot(row, col, count, hide_x_dots, hide_y_dots) {
-                    continue;
+                if self.should_draw_dot(row, col, count, hide_x_dots, hide_y_dots)
+                    && matrix.is_dark(row, col)
+                {
+                    drawable.insert(row * count + col);
                 }
+            }
+        }
 
-                if !matrix.is_dark(row, col) {
+        for row in 0..count {
+            for col in 0..count {
+                if !drawable.contains(row * count + col) {
                     continue;
                 }
 
@@ -220,20 +227,10 @@ impl SvgRenderer {
                 let neighbor_fn = |x_offset: i32, y_offset: i32| -> bool {
                     let new_col = col as i32 + x_offset;
                     let new_row = row as i32 + y_offset;
-                    if new_col < 0 || new_row < 0 || new_col >= count as i32 || new_row >= count as i32
-                    {
+                    if new_col < 0 || new_row < 0 || new_col >= count as i32 || new_row >= count as i32 {
                         return false;
                     }
-                    if !self.should_draw_dot(
-                        new_row as usize,
-                        new_col as usize,
-                        count,
-                        hide_x_dots,
-                        hide_y_dots,
-                    ) {
-                        return false;
-                    }
-                    matrix.is_dark(new_row as usize, new_col as usize)
+                    drawable.contains(new_row as usize * count + new_col as usize)
                 };
 
                 let svg = dot_drawer.draw(x, y, dot_size, Some(&neighbor_fn));
@@ -295,7 +292,7 @@ impl SvgRenderer {
         let y_fake_beginning = y_beginning - additional_dots as f64 * dot_size;
         let center = fake_count as f64 / 2.0;
 
-        let mut fake_matrix = vec![vec![0u8; fake_count]; fake_count];
+        let mut fake_matrix = vec![0u8; fake_count * fake_count];
 
         for row in 0..fake_count {
             for col in 0..fake_count {
@@ -331,14 +328,14 @@ impl SvgRenderer {
                 };
 
                 if source_row < count && source_col < count && matrix.is_dark(source_row, source_col) {
-                    fake_matrix[row][col] = 1;
+                    fake_matrix[row * fake_count + col] = 1;
                 }
             }
         }
 
         for row in 0..fake_count {
             for col in 0..fake_count {
-                if fake_matrix[row][col] == 0 {
+                if fake_matrix[row * fake_count + col] == 0 {
                     continue;
                 }
 
@@ -351,7 +348,7 @@ impl SvgRenderer {
                     if new_col < 0 || new_row < 0 || new_col >= fake_count as i32 || new_row >= fake_count as i32 {
                         return false;
                     }
-                    fake_matrix[new_row as usize][new_col as usize] == 1
+                    fake_matrix[row * fake_count + col] == 1
                 };
 
                 let svg = dot_drawer.draw(x, y, dot_size, Some(&neighbor_fn));
@@ -426,13 +423,9 @@ impl SvgRenderer {
         let sq_options = &self.options.corners_square_options;
 
         // Use corner square drawer if specific type is set
-        match sq_options.square_type {
-            CornerSquareType::Square | CornerSquareType::Dot | CornerSquareType::ExtraRounded => {
-                let drawer = QRCornerSquare::new(sq_options.square_type);
-                let svg = drawer.draw(x, y, size, rotation);
-                clip_path_content.push_str(&svg);
-            }
-        }
+        let drawer = QRCornerSquare::new(sq_options.square_type);
+        let svg = drawer.draw(x, y, size, rotation);
+        clip_path_content.push_str(&svg);
 
         defs.push_str(&format!(
             r#"<clipPath id="clip-path-{}">
