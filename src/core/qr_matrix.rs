@@ -138,32 +138,6 @@ impl QRMatrix {
     }
 }
 
-/// Square mask for corner squares (7x7 pattern).
-/// 1 = part of outer square border, 0 = not part of border
-#[allow(dead_code)]
-pub const SQUARE_MASK: [[u8; 7]; 7] = [
-    [1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1],
-];
-
-/// Dot mask for corner dots (7x7 pattern).
-/// 1 = part of inner 3x3 dot, 0 = not part of dot
-#[allow(dead_code)]
-pub const DOT_MASK: [[u8; 7]; 7] = [
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-];
-
 #[cfg(test)]
 mod tests {
     use super::*;

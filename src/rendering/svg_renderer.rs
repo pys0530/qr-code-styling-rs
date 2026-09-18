@@ -15,26 +15,28 @@ pub struct SvgRenderer<'a> {
     instance_id: u64,
 }
 
-/// Square mask for corner squares (7x7 pattern).
-const SQUARE_MASK: [[u8; 7]; 7] = [
-    [1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1],
+/// Square mask for corner squares (7x7 pattern, flattened to 1D).
+/// 1 = part of outer square border, 0 = not part of border
+const SQUARE_MASK: [u8; 49] = [
+    1, 1, 1, 1, 1, 1, 1,
+    1, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 1,
+    1, 1, 1, 1, 1, 1, 1,
 ];
 
-/// Dot mask for corner dots (7x7 pattern).
-const DOT_MASK: [[u8; 7]; 7] = [
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
+/// Dot mask for corner dots (7x7 pattern, flattened to 1D).
+/// 1 = part of inner 3x3 dot, 0 = not part of dot
+const DOT_MASK: [u8; 49] = [
+    0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 1, 1, 0, 0,
+    0, 0, 1, 1, 1, 0, 0,
+    0, 0, 1, 1, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0,
 ];
 
 static INSTANCE_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -678,7 +680,7 @@ impl<'a> SvgRenderer<'a> {
         // Skip corner squares (finder patterns)
         // Top-left
         if row < 7 && col < 7 {
-            if SQUARE_MASK[row][col] == 1 || DOT_MASK[row][col] == 1 {
+            if SQUARE_MASK[row * 7 + col] == 1 || DOT_MASK[row * 7 + col] == 1 {
                 return false;
             }
         }
@@ -686,7 +688,7 @@ impl<'a> SvgRenderer<'a> {
         // Top-right
         if row < 7 && col >= count - 7 {
             let local_col = col - (count - 7);
-            if SQUARE_MASK[row][local_col] == 1 || DOT_MASK[row][local_col] == 1 {
+            if SQUARE_MASK[row * 7 + local_col] == 1 || DOT_MASK[row * 7 + local_col] == 1 {
                 return false;
             }
         }
@@ -694,7 +696,7 @@ impl<'a> SvgRenderer<'a> {
         // Bottom-left
         if row >= count - 7 && col < 7 {
             let local_row = row - (count - 7);
-            if SQUARE_MASK[local_row][col] == 1 || DOT_MASK[local_row][col] == 1 {
+            if SQUARE_MASK[local_row * 7 + col] == 1 || DOT_MASK[local_row * 7 + col] == 1 {
                 return false;
             }
         }

@@ -25,3 +25,6 @@ output_*/
 perf.data
 perf.data.old
 flamegraph.svg
+
+# OMO
+.omo
