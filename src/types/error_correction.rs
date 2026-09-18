@@ -1,5 +1,7 @@
 //! QR code error correction levels.
 
+use fast_qr::ECL as FastQrECL;
+
 /// Error correction level for QR codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -26,13 +28,13 @@ impl ErrorCorrectionLevel {
         }
     }
 
-    /// Converts to the qrcode crate's EcLevel.
-    pub fn to_qrcode_level(&self) -> qrcode::EcLevel {
+    /// Converts to the fast_qr crate's ECL.
+    pub fn to_fast_qr_ecl(&self) -> FastQrECL {
         match self {
-            ErrorCorrectionLevel::L => qrcode::EcLevel::L,
-            ErrorCorrectionLevel::M => qrcode::EcLevel::M,
-            ErrorCorrectionLevel::Q => qrcode::EcLevel::Q,
-            ErrorCorrectionLevel::H => qrcode::EcLevel::H,
+            ErrorCorrectionLevel::L => FastQrECL::L,
+            ErrorCorrectionLevel::M => FastQrECL::M,
+            ErrorCorrectionLevel::Q => FastQrECL::Q,
+            ErrorCorrectionLevel::H => FastQrECL::H,
         }
     }
 }

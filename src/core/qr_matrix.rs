@@ -2,7 +2,53 @@
 
 use crate::config::QROptions;
 use crate::error::{QRError, Result};
-use qrcode::{QrCode, Version};
+use fast_qr::{QRBuilder, Version};
+
+fn type_number_to_version(type_number: u8) -> Option<Version> {
+    match type_number {
+        1 => Some(Version::V01),
+        2 => Some(Version::V02),
+        3 => Some(Version::V03),
+        4 => Some(Version::V04),
+        5 => Some(Version::V05),
+        6 => Some(Version::V06),
+        7 => Some(Version::V07),
+        8 => Some(Version::V08),
+        9 => Some(Version::V09),
+        10 => Some(Version::V10),
+        11 => Some(Version::V11),
+        12 => Some(Version::V12),
+        13 => Some(Version::V13),
+        14 => Some(Version::V14),
+        15 => Some(Version::V15),
+        16 => Some(Version::V16),
+        17 => Some(Version::V17),
+        18 => Some(Version::V18),
+        19 => Some(Version::V19),
+        20 => Some(Version::V20),
+        21 => Some(Version::V21),
+        22 => Some(Version::V22),
+        23 => Some(Version::V23),
+        24 => Some(Version::V24),
+        25 => Some(Version::V25),
+        26 => Some(Version::V26),
+        27 => Some(Version::V27),
+        28 => Some(Version::V28),
+        29 => Some(Version::V29),
+        30 => Some(Version::V30),
+        31 => Some(Version::V31),
+        32 => Some(Version::V32),
+        33 => Some(Version::V33),
+        34 => Some(Version::V34),
+        35 => Some(Version::V35),
+        36 => Some(Version::V36),
+        37 => Some(Version::V37),
+        38 => Some(Version::V38),
+        39 => Some(Version::V39),
+        40 => Some(Version::V40),
+        _ => None,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FinderRegion {
@@ -22,34 +68,38 @@ pub struct QRMatrix {
 }
 
 impl QRMatrix {
-    /// Create a new QR matrix from data with the specified options.    
+    /// Create a new QR matrix from data with the specified options.
     pub fn new(data: &str, options: &QROptions) -> Result<Self> {
-        let ec_level = options.error_correction_level.to_qrcode_level();
+        let ecl = options.error_correction_level.to_fast_qr_ecl();
 
         // Determine the version
         let version = if options.type_number == 0 {
             None // Auto-detect
         } else {
-            Some(Version::Normal(options.type_number as i16))
+            Some(
+                type_number_to_version(options.type_number)
+                    .ok_or_else(|| QRError::QRGenerationError(format!("Invalid QR version: {}", options.type_number)))?
+            )
         };
 
         // Build the QR code
-        let qr = if let Some(v) = version {
-            QrCode::with_version(data.as_bytes(), v, ec_level)
-                .map_err(|e| QRError::QRGenerationError(e.to_string()))?
-        } else {
-            QrCode::with_error_correction_level(data.as_bytes(), ec_level)
-                .map_err(|e| QRError::QRGenerationError(e.to_string()))?
-        };
+        let mut builder = QRBuilder::new(data.as_bytes());
+        builder.ecl(ecl);
+        if let Some(v) = version {
+            builder.version(v);
+        }
+        let qr = builder
+            .build()
+            .map_err(|e| QRError::QRGenerationError(e.to_string()))?;
 
-        let size = qr.width() as usize;
+        let size = qr.size;
         let mut modules = Vec::with_capacity(size * size);
 
         // Convert to flat array for O(1) access
+        // fast_qr stores data as [Module; 31329] (max 177x177), only first size*size are valid
         for y in 0..size {
             for x in 0..size {
-                let color = qr[(x, y)];
-                modules.push(color == qrcode::Color::Dark);
+                modules.push(qr.data[y * size + x].value());
             }
         }
 

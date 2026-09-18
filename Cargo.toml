@@ -17,7 +17,7 @@ exclude = ["*.svg", "*.pdf", "*.png", "*.jpg", "*.webp", "!examples/logo.png"]
 crate-type = ["lib"]
 
 [dependencies]
-qrcode = "0.14"
+fast_qr = "0.14"
 thiserror = "2.0"
 base64 = "0.22"
 fixedbitset = "0.5"
